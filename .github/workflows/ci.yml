@@ -93,7 +93,7 @@ jobs:
 
       - name: Upload SARIF artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: devguard-ai-validator-sarif
           path: artifacts/devguard-ai-validator.sarif
@@ -173,7 +173,7 @@ jobs:
 
       - name: Upload PR gate SARIF artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: devguard-pr-gate-sarif
           path: artifacts/devguard-pr-gate.sarif
