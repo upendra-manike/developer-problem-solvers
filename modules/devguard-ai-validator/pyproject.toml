@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "devguard-ai-validator"
-version = "0.1.1"
+version = "0.1.2"
 description = "AI-generated code validation module built on devguard-core"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "DevGuard Contributors" }]
 license = "MIT"
 license-files = ["LICENSE"]
-dependencies = ["devguard-core>=0.1.1"]
+dependencies = ["devguard-core>=0.1.2"]
 
 [project.urls]
 Homepage = "https://github.com/upendra-manike/developer-problem-solvers"
