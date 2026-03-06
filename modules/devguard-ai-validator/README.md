@@ -1,6 +1,14 @@
 # devguard-ai-validator
 
-Wedge module for validating AI-generated code.
+`devguard-ai-validator` validates AI-generated code using confidence-aware checks built on `devguard-core`.
+
+It is optimized for teams using LLM-generated code in pull requests and CI pipelines.
+
+## Install
+
+```bash
+python -m pip install devguard-ai-validator
+```
 
 ## Scope (v0.1)
 
@@ -11,5 +19,17 @@ Wedge module for validating AI-generated code.
 ## Example
 
 ```bash
-PYTHONPATH=../devguard-core/src:src python -m devguard_ai_validator.cli ../../examples/sample_insecure.py --format json
+devguard-ai-validator ./src --format json
+```
+
+Use stricter confidence threshold:
+
+```bash
+devguard-ai-validator ./src --min-confidence 0.85 --format json
+```
+
+Generate SARIF for security tooling:
+
+```bash
+devguard-ai-validator ./src --format sarif --output devguard-ai-validator.sarif
 ```

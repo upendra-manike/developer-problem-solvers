@@ -1,6 +1,14 @@
 # devguard-core
 
-Shared scanning engine and rule framework for DevGuard modules.
+`devguard-core` is a Python static analysis engine for security and reliability checks in application code.
+
+It is designed for local developer workflows, CI pull request gates, and SARIF-based security tooling.
+
+## Install
+
+```bash
+python -m pip install devguard-core
+```
 
 ## Features
 
@@ -11,8 +19,41 @@ Shared scanning engine and rule framework for DevGuard modules.
 - JSON and SARIF output
 - Baseline input/output for incremental CI rollout
 
+## Built-In Rules
+
+- `DG001`: potential SQL injection patterns
+- `DG002`: potential unsafe deserialization calls
+- `DG003`: potential hardcoded secrets
+- `DG004`: potential expensive allocations in loops
+- `DG005`: potential async/network calls without local error handling
+
 ## Quick Run
 
 ```bash
-PYTHONPATH=src python -m devguard_core.cli scan ../../examples/sample_insecure.py --format json
+devguard-core scan ./src --format json
 ```
+
+Scan with CI-friendly filters:
+
+```bash
+devguard-core scan ./src --min-severity medium --min-confidence 0.7 --format sarif --output devguard.sarif
+```
+
+Scan changed files only:
+
+```bash
+git diff --name-only --diff-filter=ACMR origin/main...HEAD > changed-files.txt
+devguard-core scan . --file-list changed-files.txt --format json
+```
+
+Baseline workflow:
+
+```bash
+devguard-core scan ./src --baseline-out .devguard-baseline.json --format json
+devguard-core scan ./src --baseline-in .devguard-baseline.json --format json
+```
+
+## Output Formats
+
+- `json`: machine and script friendly output
+- `sarif`: GitHub Code Scanning and security platform integration

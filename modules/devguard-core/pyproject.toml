@@ -4,16 +4,25 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "devguard-core"
-version = "0.1.2"
-description = "Core analysis engine for DevGuard modules"
+version = "0.1.3"
+description = "Static analysis engine for AI-generated code reliability, security, and CI gating"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "DevGuard Contributors" }]
 license = "MIT"
 license-files = ["LICENSE"]
-keywords = ["static-analysis", "security", "reliability", "ai-code"]
+keywords = ["static-analysis", "code-security", "sarif", "devsecops", "ci", "ai-generated-code", "python-cli"]
 classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Topic :: Security",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Software Development :: Testing",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Operating System :: OS Independent"
 ]
 

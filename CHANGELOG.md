@@ -2,6 +2,13 @@
 
 ## 2026-03-06
 
+- devguard-core: 0.1.3
+- devguard-ai-validator: 0.1.3
+- Improved PyPI discoverability metadata (description, keywords, classifiers).
+- Added AI-friendly package README quick starts and CI-focused usage examples.
+
+## 2026-03-06
+
 - devguard-core: 0.1.0
 - devguard-ai-validator: 0.1.0
 - Initial production-ready release baseline.
