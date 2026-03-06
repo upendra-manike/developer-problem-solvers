@@ -221,7 +221,7 @@ jobs:
 
       - name: Comment PR with DevGuard summary
         if: ${{ always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           DG_TOTAL: ${{ steps.summarize.outputs.total }}
           DG_HIGH: ${{ steps.summarize.outputs.high }}
