@@ -260,6 +260,23 @@ Automated version/tag/release workflow: `.github/workflows/release-automation.ym
 
 Auto publish on every commit: `.github/workflows/auto-publish-python.yml`.
 
+## Public Repo Hardening
+
+Implemented controls:
+
+1. Ownership enforcement via `.github/CODEOWNERS`
+2. Security disclosure policy in `SECURITY.md`
+3. Automated dependency updates in `.github/dependabot.yml`
+4. Auto-publish limited to protected `main` and package-path changes only
+5. Serialized publish runs with workflow concurrency guard
+
+Recommended GitHub settings (enable in repository UI):
+
+1. Require pull requests before merging into `main`
+2. Require approving review and dismiss stale approvals on new commits
+3. Require status checks: `CI / devguard-core-tests`, `CI / devguard-ai-validator`, `CI / devguard-pr-gate`
+4. Restrict who can push directly to `main`
+
 ## Next Step
 
 Start with `devguard-ai-validator` as the wedge product, then expand into `security` and `dependency` modules using the same engine.

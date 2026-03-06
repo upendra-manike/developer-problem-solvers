@@ -3,6 +3,10 @@ name: Auto Publish Python Packages
 on:
   push:
     branches: [main]
+    paths:
+      - "modules/devguard-core/**"
+      - "modules/devguard-ai-validator/**"
+      - ".github/workflows/auto-publish-python.yml"
   workflow_dispatch:
 
 permissions:
@@ -11,8 +15,12 @@ permissions:
 
 jobs:
   auto-publish:
-    if: ${{ github.actor != 'github-actions[bot]' }}
+    if: ${{ github.actor != 'github-actions[bot]' && github.ref_protected == true }}
     runs-on: ubuntu-latest
+    environment: pypi
+    concurrency:
+      group: auto-publish-pypi
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,7 +37,25 @@ jobs:
             exit 1
           fi
 
+      - name: Verify module changes in last commit
+        id: changed
+        run: |
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "Manual run: skipping changed-files enforcement"
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! git diff-tree --no-commit-id --name-only -r "${{ github.sha }}" | grep -E '^modules/(devguard-core|devguard-ai-validator)/' >/dev/null; then
+            echo "No package module changes detected in commit ${{ github.sha }}; skipping publish for safety."
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "should_publish=true" >> "$GITHUB_OUTPUT"
+
       - name: Compute publish versions
+        if: ${{ steps.changed.outputs.should_publish == 'true' }}
         id: versions
         run: |
           python - <<'PY'
@@ -62,6 +88,7 @@ jobs:
           PY
 
       - name: Apply publish versions
+        if: ${{ steps.changed.outputs.should_publish == 'true' }}
         env:
           CORE_VERSION: ${{ steps.versions.outputs.core_version }}
           AI_VERSION: ${{ steps.versions.outputs.ai_version }}
@@ -106,6 +133,7 @@ jobs:
           PY
 
       - name: Build packages
+        if: ${{ steps.changed.outputs.should_publish == 'true' }}
         run: |
           python -m pip install --upgrade pip
           pip install build twine
@@ -114,6 +142,7 @@ jobs:
           python -m twine check dist/devguard-core/* dist/devguard-ai-validator/*
 
       - name: Publish devguard-core to PyPI
+        if: ${{ steps.changed.outputs.should_publish == 'true' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
@@ -122,6 +151,7 @@ jobs:
           attestations: false
 
       - name: Publish devguard-ai-validator to PyPI
+        if: ${{ steps.changed.outputs.should_publish == 'true' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
@@ -131,6 +161,11 @@ jobs:
 
       - name: Release summary
         run: |
+          if [ "${{ steps.changed.outputs.should_publish }}" != "true" ]; then
+            echo "No package module changes detected. Publish skipped." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
           echo "Published versions:" >> "$GITHUB_STEP_SUMMARY"
           echo "- devguard-core: ${{ steps.versions.outputs.core_version }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- devguard-ai-validator: ${{ steps.versions.outputs.ai_version }}" >> "$GITHUB_STEP_SUMMARY"

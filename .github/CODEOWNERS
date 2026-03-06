@@ -1,0 +1,7 @@
+# Require review from repository owner for all changes.
+* @upendra-manike
+
+# Package-specific ownership.
+/modules/devguard-core/ @upendra-manike
+/modules/devguard-ai-validator/ @upendra-manike
+/.github/workflows/ @upendra-manike
