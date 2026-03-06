@@ -86,5 +86,8 @@ Error example:
 Fix:
 
 1. Ensure workflow permissions include `id-token: write`.
-2. If using Trusted Publishing, configure project trusted publisher in PyPI/TestPyPI.
-3. If using API tokens instead, verify `TEST_PYPI_API_TOKEN` and `PYPI_API_TOKEN` secrets are set.
+2. Ensure each publish job also has job-level `permissions: id-token: write`.
+3. Ensure required secrets are present:
+   - `TEST_PYPI_API_TOKEN` for TestPyPI runs
+   - `PYPI_API_TOKEN` for PyPI runs
+4. If using Trusted Publishing, configure project trusted publisher in PyPI/TestPyPI.

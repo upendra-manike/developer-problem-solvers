@@ -29,6 +29,9 @@ jobs:
   publish-devguard-core:
     if: ${{ github.event.inputs.package == 'devguard-core' || github.event.inputs.package == 'both' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,6 +47,17 @@ jobs:
           pip install build twine
           python -m build modules/devguard-core --outdir dist/devguard-core
           python -m twine check dist/devguard-core/*
+
+      - name: Validate publish credentials
+        run: |
+          if [ "${{ github.event.inputs.repository }}" = "testpypi" ] && [ -z "${{ secrets.TEST_PYPI_API_TOKEN }}" ]; then
+            echo "Missing TEST_PYPI_API_TOKEN secret. Add it in repository secrets."
+            exit 1
+          fi
+          if [ "${{ github.event.inputs.repository }}" = "pypi" ] && [ -z "${{ secrets.PYPI_API_TOKEN }}" ]; then
+            echo "Missing PYPI_API_TOKEN secret. Add it in repository secrets."
+            exit 1
+          fi
 
       - name: Publish to TestPyPI
         if: ${{ github.event.inputs.repository == 'testpypi' }}
@@ -65,6 +79,9 @@ jobs:
   publish-devguard-ai-validator:
     if: ${{ github.event.inputs.package == 'devguard-ai-validator' || github.event.inputs.package == 'both' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -80,6 +97,17 @@ jobs:
           pip install build twine
           python -m build modules/devguard-ai-validator --outdir dist/devguard-ai-validator
           python -m twine check dist/devguard-ai-validator/*
+
+      - name: Validate publish credentials
+        run: |
+          if [ "${{ github.event.inputs.repository }}" = "testpypi" ] && [ -z "${{ secrets.TEST_PYPI_API_TOKEN }}" ]; then
+            echo "Missing TEST_PYPI_API_TOKEN secret. Add it in repository secrets."
+            exit 1
+          fi
+          if [ "${{ github.event.inputs.repository }}" = "pypi" ] && [ -z "${{ secrets.PYPI_API_TOKEN }}" ]; then
+            echo "Missing PYPI_API_TOKEN secret. Add it in repository secrets."
+            exit 1
+          fi
 
       - name: Publish to TestPyPI
         if: ${{ github.event.inputs.repository == 'testpypi' }}
