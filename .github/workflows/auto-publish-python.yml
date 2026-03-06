@@ -1,0 +1,136 @@
+name: Auto Publish Python Packages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  auto-publish:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate PyPI token
+        run: |
+          if [ -z "${{ secrets.PYPI_API_TOKEN }}" ]; then
+            echo "Missing PYPI_API_TOKEN secret. Add it in repository secrets."
+            exit 1
+          fi
+
+      - name: Compute publish versions
+        id: versions
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          run_number = os.environ["GITHUB_RUN_NUMBER"]
+
+          core_file = Path("modules/devguard-core/pyproject.toml")
+          ai_file = Path("modules/devguard-ai-validator/pyproject.toml")
+
+          def read_base_version(path: Path) -> str:
+            text = path.read_text(encoding="utf-8")
+            match = re.search(r'^version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)(?:\.post[0-9]+)?"\s*$', text, re.MULTILINE)
+            if not match:
+              raise SystemExit(f"Could not parse version from {path}")
+            return match.group(1)
+
+          base_core = read_base_version(core_file)
+          base_ai = read_base_version(ai_file)
+
+          core_version = f"{base_core}.post{run_number}"
+          ai_version = f"{base_ai}.post{run_number}"
+
+          out = Path(os.environ["GITHUB_OUTPUT"])
+          with out.open("a", encoding="utf-8") as fp:
+            fp.write(f"core_version={core_version}\n")
+            fp.write(f"ai_version={ai_version}\n")
+          PY
+
+      - name: Apply publish versions
+        env:
+          CORE_VERSION: ${{ steps.versions.outputs.core_version }}
+          AI_VERSION: ${{ steps.versions.outputs.ai_version }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          core_file = Path("modules/devguard-core/pyproject.toml")
+          ai_file = Path("modules/devguard-ai-validator/pyproject.toml")
+
+          core_version = os.environ["CORE_VERSION"]
+          ai_version = os.environ["AI_VERSION"]
+
+          def replace_version(path: Path, new_version: str) -> None:
+            text = path.read_text(encoding="utf-8")
+            updated, count = re.subn(
+              r'^(version\s*=\s*")[^"]+("\s*)$',
+              rf'\g<1>{new_version}\g<2>',
+              text,
+              count=1,
+              flags=re.MULTILINE,
+            )
+            if count != 1:
+              raise SystemExit(f"Failed to replace version in {path}")
+            path.write_text(updated, encoding="utf-8")
+
+          replace_version(core_file, core_version)
+          replace_version(ai_file, ai_version)
+
+          text = ai_file.read_text(encoding="utf-8")
+          updated, count = re.subn(
+            r'devguard-core>=[0-9]+\.[0-9]+\.[0-9]+(?:\.post[0-9]+)?',
+            f"devguard-core>={core_version}",
+            text,
+            count=1,
+          )
+          if count != 1:
+            raise SystemExit("Failed to update devguard-core dependency in ai-validator")
+          ai_file.write_text(updated, encoding="utf-8")
+          PY
+
+      - name: Build packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+          python -m build modules/devguard-core --outdir dist/devguard-core
+          python -m build modules/devguard-ai-validator --outdir dist/devguard-ai-validator
+          python -m twine check dist/devguard-core/* dist/devguard-ai-validator/*
+
+      - name: Publish devguard-core to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages-dir: dist/devguard-core/
+          attestations: false
+
+      - name: Publish devguard-ai-validator to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages-dir: dist/devguard-ai-validator/
+          attestations: false
+
+      - name: Release summary
+        run: |
+          echo "Published versions:" >> "$GITHUB_STEP_SUMMARY"
+          echo "- devguard-core: ${{ steps.versions.outputs.core_version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- devguard-ai-validator: ${{ steps.versions.outputs.ai_version }}" >> "$GITHUB_STEP_SUMMARY"

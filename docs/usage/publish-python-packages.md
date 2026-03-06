@@ -29,6 +29,23 @@ Auth mode guidance:
 1. `token`: use repository secrets (`TEST_PYPI_API_TOKEN`, `PYPI_API_TOKEN`)
 2. `trusted`: use PyPI/TestPyPI Trusted Publisher setup (no API token password)
 
+## Auto Publish On Every Commit
+
+Use workflow: `.github/workflows/auto-publish-python.yml`
+
+Behavior:
+
+1. Runs automatically on every push to `main`.
+2. Publishes both packages to PyPI.
+3. Generates unique post-release versions from the base package version:
+   - `devguard-core`: `<base>.post<GITHUB_RUN_NUMBER>`
+   - `devguard-ai-validator`: `<base>.post<GITHUB_RUN_NUMBER>`
+4. Updates ai-validator dependency to the generated core version during build.
+
+Requirement:
+
+1. `PYPI_API_TOKEN` secret must be configured.
+
 ## Automated Version + Tag + Release
 
 Use workflow: `.github/workflows/release-automation.yml`

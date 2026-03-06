@@ -258,6 +258,8 @@ Release preflight script: `scripts/release_check.sh`.
 
 Automated version/tag/release workflow: `.github/workflows/release-automation.yml`.
 
+Auto publish on every commit: `.github/workflows/auto-publish-python.yml`.
+
 ## Next Step
 
 Start with `devguard-ai-validator` as the wedge product, then expand into `security` and `dependency` modules using the same engine.
