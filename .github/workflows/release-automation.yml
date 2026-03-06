@@ -1,0 +1,101 @@
+name: Release Automation
+
+on:
+  workflow_dispatch:
+    inputs:
+      part:
+        description: "Semver part to bump"
+        type: choice
+        required: true
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+      package:
+        description: "Package scope"
+        type: choice
+        required: true
+        default: both
+        options:
+          - devguard-core
+          - devguard-ai-validator
+          - both
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Bump versions
+        run: |
+          python scripts/bump_versions.py --part "${{ github.event.inputs.part }}" --package "${{ github.event.inputs.package }}"
+
+      - name: Read updated versions
+        id: versions
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          def v(path: str) -> str:
+            text = Path(path).read_text(encoding='utf-8')
+            return re.search(r'^version\s*=\s*"(\d+\.\d+\.\d+)"\s*$', text, re.MULTILINE).group(1)
+
+          core = v('modules/devguard-core/pyproject.toml')
+          ai = v('modules/devguard-ai-validator/pyproject.toml')
+
+          out = Path('.github_versions_out.txt')
+          out.write_text(f'core={core}\nai={ai}\n', encoding='utf-8')
+          PY
+
+          cat .github_versions_out.txt >> "$GITHUB_OUTPUT"
+
+      - name: Update changelog
+        run: |
+          python scripts/update_changelog.py --core-version "${{ steps.versions.outputs.core }}" --ai-version "${{ steps.versions.outputs.ai }}"
+
+      - name: Run release checks
+        run: |
+          bash scripts/release_check.sh
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add modules/devguard-core/pyproject.toml modules/devguard-ai-validator/pyproject.toml CHANGELOG.md
+          git commit -m "release: bump versions and update changelog"
+
+      - name: Create tag
+        id: tag
+        run: |
+          tag="release-core-v${{ steps.versions.outputs.core }}__ai-v${{ steps.versions.outputs.ai }}"
+          git tag "$tag"
+          echo "name=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Push commit and tag
+        run: |
+          git push
+          git push origin "${{ steps.tag.outputs.name }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          generate_release_notes: true
+          body: |
+            Automated release created by workflow.
+
+            Versions:
+            - devguard-core: ${{ steps.versions.outputs.core }}
+            - devguard-ai-validator: ${{ steps.versions.outputs.ai }}

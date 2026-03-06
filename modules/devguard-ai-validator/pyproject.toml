@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "devguard-ai-validator"
+version = "0.1.1"
+description = "AI-generated code validation module built on devguard-core"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "DevGuard Contributors" }]
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = ["devguard-core>=0.1.1"]
+
+[project.urls]
+Homepage = "https://github.com/upendra-manike/developer-problem-solvers"
+Repository = "https://github.com/upendra-manike/developer-problem-solvers"
+Issues = "https://github.com/upendra-manike/developer-problem-solvers/issues"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.8.0", "build>=1.2.0"]
+
+[project.scripts]
+devguard-ai-validator = "devguard_ai_validator.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

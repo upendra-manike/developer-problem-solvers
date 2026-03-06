@@ -1,0 +1,10 @@
+{
+  "exclude_dir": ["dist", "build", "vendor"],
+  "max_file_size_kb": 512,
+  "workers": 4,
+  "min_severity": "medium",
+  "min_confidence": 0.7,
+  "include_rule": [],
+  "exclude_rule": [],
+  "baseline_in": ".devguard-baseline.json"
+}

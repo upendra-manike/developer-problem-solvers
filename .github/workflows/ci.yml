@@ -1,0 +1,291 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  devguard-core-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest ruff build
+
+      - name: Lint source and tests
+        run: |
+          ruff check modules/devguard-core/src modules/devguard-core/tests
+          ruff check modules/devguard-ai-validator/src modules/devguard-ai-validator/tests
+
+      - name: Build packages
+        run: |
+          python -m build modules/devguard-core
+          python -m build modules/devguard-ai-validator
+
+      - name: Run unit tests
+        env:
+          PYTHONPATH: modules/devguard-core/src
+        run: pytest -q modules/devguard-core/tests
+
+      - name: Run sample scan
+        env:
+          PYTHONPATH: modules/devguard-core/src
+        run: |
+          set +e
+          python -m devguard_core.cli scan examples/sample_insecure.py --format json
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then
+            echo "Expected exit code 1 for known findings, got $code"
+            exit 1
+          fi
+
+  devguard-ai-validator:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      - name: Run ai-validator tests
+        env:
+          PYTHONPATH: modules/devguard-core/src:modules/devguard-ai-validator/src
+        run: pytest -q modules/devguard-ai-validator/tests
+
+      - name: Generate SARIF report
+        env:
+          PYTHONPATH: modules/devguard-core/src:modules/devguard-ai-validator/src
+        run: |
+          set +e
+          mkdir -p artifacts
+          python -m devguard_ai_validator.cli examples/sample_insecure.py --format sarif --output artifacts/devguard-ai-validator.sarif
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ] && [ "$code" -ne 1 ]; then
+            echo "Unexpected exit code: $code"
+            exit 1
+          fi
+
+      - name: Upload SARIF artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devguard-ai-validator-sarif
+          path: artifacts/devguard-ai-validator.sarif
+          if-no-files-found: error
+
+      - name: Upload to GitHub Code Scanning
+        if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: artifacts/devguard-ai-validator.sarif
+          category: devguard-ai-validator
+
+  devguard-pr-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Collect changed files
+        id: changed
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          mkdir -p artifacts
+          git fetch origin "${{ github.base_ref }}":"refs/remotes/origin/${{ github.base_ref }}"
+          git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}"...HEAD > artifacts/changed-files-all.txt
+
+          grep -E '^modules/.*\.(py|js|ts|java|go|rs)$' artifacts/changed-files-all.txt > artifacts/changed-files-devguard.txt || true
+
+          count="$(wc -l < artifacts/changed-files-devguard.txt | tr -d ' ')"
+          echo "changed_count=$count" >> "$GITHUB_OUTPUT"
+
+      - name: Baseline-aware PR scan
+        id: scan
+        env:
+          PYTHONPATH: modules/devguard-core/src
+        run: |
+          set +e
+          mkdir -p artifacts
+
+          if [ -f .devguard-baseline.json ]; then
+            echo "Using baseline mode with .devguard-baseline.json"
+            echo "scan_mode=baseline" >> "$GITHUB_OUTPUT"
+            if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ steps.changed.outputs.changed_count }}" != "0" ]; then
+              echo "Scanning changed files only"
+              python -m devguard_core.cli scan modules --file-list artifacts/changed-files-devguard.txt --min-severity medium --exclude-dir dist --exclude-dir build --baseline-in .devguard-baseline.json --format sarif --output artifacts/devguard-pr-gate.sarif
+            else
+              echo "Scanning full modules scope"
+              python -m devguard_core.cli scan modules --min-severity medium --exclude-dir dist --exclude-dir build --baseline-in .devguard-baseline.json --format sarif --output artifacts/devguard-pr-gate.sarif
+            fi
+          else
+            echo "No baseline file found. Running strict mode."
+            echo "scan_mode=strict" >> "$GITHUB_OUTPUT"
+            if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ steps.changed.outputs.changed_count }}" != "0" ]; then
+              echo "Scanning changed files only"
+              python -m devguard_core.cli scan modules --file-list artifacts/changed-files-devguard.txt --min-severity medium --exclude-dir dist --exclude-dir build --format sarif --output artifacts/devguard-pr-gate.sarif
+            else
+              echo "Scanning full modules scope"
+              python -m devguard_core.cli scan modules --min-severity medium --exclude-dir dist --exclude-dir build --format sarif --output artifacts/devguard-pr-gate.sarif
+            fi
+          fi
+
+          code=$?
+          set -e
+          echo "scan_exit_code=$code" >> "$GITHUB_OUTPUT"
+
+          if [ "$code" -ne 0 ] && [ "$code" -ne 1 ]; then
+            echo "Unexpected exit code: $code"
+            exit 1
+          fi
+
+      - name: Upload PR gate SARIF artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devguard-pr-gate-sarif
+          path: artifacts/devguard-pr-gate.sarif
+          if-no-files-found: error
+
+      - name: Upload PR gate results to Code Scanning
+        if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: artifacts/devguard-pr-gate.sarif
+          category: devguard-pr-gate
+
+      - name: Summarize PR gate SARIF
+        id: summarize
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          sarif_path = Path("artifacts/devguard-pr-gate.sarif")
+          data = json.loads(sarif_path.read_text(encoding="utf-8"))
+          runs = data.get("runs", [])
+
+          total = 0
+          high = 0
+          medium = 0
+
+          for run in runs:
+            for result in run.get("results", []):
+              total += 1
+              level = result.get("level", "")
+              if level == "error":
+                high += 1
+              elif level == "warning":
+                medium += 1
+
+          out = Path(os.environ["GITHUB_OUTPUT"])
+          with out.open("a", encoding="utf-8") as fp:
+            fp.write(f"total={total}\n")
+            fp.write(f"high={high}\n")
+            fp.write(f"medium={medium}\n")
+          PY
+
+      - name: Comment PR with DevGuard summary
+        if: ${{ always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false }}
+        uses: actions/github-script@v7
+        env:
+          DG_TOTAL: ${{ steps.summarize.outputs.total }}
+          DG_HIGH: ${{ steps.summarize.outputs.high }}
+          DG_MEDIUM: ${{ steps.summarize.outputs.medium }}
+          DG_EXIT: ${{ steps.scan.outputs.scan_exit_code }}
+          DG_MODE: ${{ steps.scan.outputs.scan_mode }}
+        with:
+          script: |
+            const marker = '<!-- devguard-pr-gate-comment -->';
+            const total = Number(process.env.DG_TOTAL || '0');
+            const high = Number(process.env.DG_HIGH || '0');
+            const medium = Number(process.env.DG_MEDIUM || '0');
+            const exitCode = process.env.DG_EXIT || '0';
+            const mode = process.env.DG_MODE || 'strict';
+
+            const status = exitCode === '0' ? 'PASS' : 'FAIL';
+            const body = `${marker}
+            ## DevGuard PR Gate Summary
+
+            - Status: **${status}**
+            - Mode: **${mode}**
+            - New findings: **${total}**
+            - High severity: **${high}**
+            - Medium severity: **${medium}**
+
+            Artifacts:
+            - devguard-pr-gate-sarif
+
+            Rule:
+            - PR fails when new medium/high findings are detected against baseline (if present).
+            `;
+
+            const issue_number = context.issue.number;
+            const { owner, repo } = context.repo;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+
+            const existing = comments.find(c => c.user?.type === 'Bot' && c.body?.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }
+
+      - name: Enforce no new findings
+        run: |
+          code="${{ steps.scan.outputs.scan_exit_code }}"
+          if [ "$code" -ne 0 ]; then
+            echo "PR gate failed: findings detected (exit code $code)."
+            exit 1
+          fi
