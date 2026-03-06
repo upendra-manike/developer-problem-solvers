@@ -22,6 +22,12 @@ Inputs:
 
 1. `package`: `devguard-core`, `devguard-ai-validator`, or `both`
 2. `repository`: `testpypi` or `pypi`
+3. `auth_mode`: `token` or `trusted`
+
+Auth mode guidance:
+
+1. `token`: use repository secrets (`TEST_PYPI_API_TOKEN`, `PYPI_API_TOKEN`)
+2. `trusted`: use PyPI/TestPyPI Trusted Publisher setup (no API token password)
 
 ## Automated Version + Tag + Release
 
@@ -90,4 +96,4 @@ Fix:
 3. Ensure required secrets are present:
    - `TEST_PYPI_API_TOKEN` for TestPyPI runs
    - `PYPI_API_TOKEN` for PyPI runs
-4. If using Trusted Publishing, configure project trusted publisher in PyPI/TestPyPI.
+4. If using Trusted Publishing, run workflow with `auth_mode=trusted` and configure project trusted publisher in PyPI/TestPyPI.

@@ -20,6 +20,14 @@ on:
         options:
           - testpypi
           - pypi
+      auth_mode:
+        description: "Publishing auth mode"
+        type: choice
+        required: true
+        default: token
+        options:
+          - token
+          - trusted
 
 permissions:
   contents: read
@@ -48,7 +56,8 @@ jobs:
           python -m build modules/devguard-core --outdir dist/devguard-core
           python -m twine check dist/devguard-core/*
 
-      - name: Validate publish credentials
+      - name: Validate publish credentials (token mode)
+        if: ${{ github.event.inputs.auth_mode == 'token' }}
         run: |
           if [ "${{ github.event.inputs.repository }}" = "testpypi" ] && [ -z "${{ secrets.TEST_PYPI_API_TOKEN }}" ]; then
             echo "Missing TEST_PYPI_API_TOKEN secret. Add it in repository secrets."
@@ -59,21 +68,36 @@ jobs:
             exit 1
           fi
 
-      - name: Publish to TestPyPI
-        if: ${{ github.event.inputs.repository == 'testpypi' }}
+      - name: Publish to TestPyPI (token)
+        if: ${{ github.event.inputs.repository == 'testpypi' && github.event.inputs.auth_mode == 'token' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
           packages-dir: dist/devguard-core/
+          attestations: false
 
-      - name: Publish to PyPI
-        if: ${{ github.event.inputs.repository == 'pypi' }}
+      - name: Publish to PyPI (token)
+        if: ${{ github.event.inputs.repository == 'pypi' && github.event.inputs.auth_mode == 'token' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
+          packages-dir: dist/devguard-core/
+          attestations: false
+
+      - name: Publish to TestPyPI (trusted)
+        if: ${{ github.event.inputs.repository == 'testpypi' && github.event.inputs.auth_mode == 'trusted' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/devguard-core/
+
+      - name: Publish to PyPI (trusted)
+        if: ${{ github.event.inputs.repository == 'pypi' && github.event.inputs.auth_mode == 'trusted' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
           packages-dir: dist/devguard-core/
 
   publish-devguard-ai-validator:
@@ -98,7 +122,8 @@ jobs:
           python -m build modules/devguard-ai-validator --outdir dist/devguard-ai-validator
           python -m twine check dist/devguard-ai-validator/*
 
-      - name: Validate publish credentials
+      - name: Validate publish credentials (token mode)
+        if: ${{ github.event.inputs.auth_mode == 'token' }}
         run: |
           if [ "${{ github.event.inputs.repository }}" = "testpypi" ] && [ -z "${{ secrets.TEST_PYPI_API_TOKEN }}" ]; then
             echo "Missing TEST_PYPI_API_TOKEN secret. Add it in repository secrets."
@@ -109,19 +134,34 @@ jobs:
             exit 1
           fi
 
-      - name: Publish to TestPyPI
-        if: ${{ github.event.inputs.repository == 'testpypi' }}
+      - name: Publish to TestPyPI (token)
+        if: ${{ github.event.inputs.repository == 'testpypi' && github.event.inputs.auth_mode == 'token' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
           packages-dir: dist/devguard-ai-validator/
+          attestations: false
 
-      - name: Publish to PyPI
-        if: ${{ github.event.inputs.repository == 'pypi' }}
+      - name: Publish to PyPI (token)
+        if: ${{ github.event.inputs.repository == 'pypi' && github.event.inputs.auth_mode == 'token' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
+          packages-dir: dist/devguard-ai-validator/
+          attestations: false
+
+      - name: Publish to TestPyPI (trusted)
+        if: ${{ github.event.inputs.repository == 'testpypi' && github.event.inputs.auth_mode == 'trusted' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/devguard-ai-validator/
+
+      - name: Publish to PyPI (trusted)
+        if: ${{ github.event.inputs.repository == 'pypi' && github.event.inputs.auth_mode == 'trusted' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
           packages-dir: dist/devguard-ai-validator/
