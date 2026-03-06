@@ -74,3 +74,17 @@ python -m pip install devguard-ai-validator
 1. `devguard-ai-validator` depends on `devguard-core>=0.1.0`.
 2. If publishing both, publish `devguard-core` first.
 3. If package version already exists, publish will fail by design.
+
+## Troubleshooting
+
+### Trusted publishing exchange failure
+
+Error example:
+
+`OpenID Connect token retrieval failed ... ACTIONS_ID_TOKEN_REQUEST_TOKEN environment variable was unset`
+
+Fix:
+
+1. Ensure workflow permissions include `id-token: write`.
+2. If using Trusted Publishing, configure project trusted publisher in PyPI/TestPyPI.
+3. If using API tokens instead, verify `TEST_PYPI_API_TOKEN` and `PYPI_API_TOKEN` secrets are set.
